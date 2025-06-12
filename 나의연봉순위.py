@@ -1,14 +1,14 @@
 import streamlit as st
 import pandas as pd
 import re
-import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np # For numerical operations, especially interpolation
+import plotly.express as px # Plotly Express for easy plotting
+import plotly.graph_objects as go # Plotly Graph Objects for more control (e.g., adding lines)
 
 # Streamlit 페이지 설정: 브라우저 탭 제목과 아이콘을 설정합니다.
 st.set_page_config(
     page_title="나의 근로소득 순위 분석",
-    page_icon="📊",
+    page_icon="�",
     layout="centered" # 페이지 레이아웃을 중앙 정렬로 설정 (기본값은 'centered' 또는 'wide' 선택 가능)
 )
 
@@ -162,33 +162,56 @@ if user_income > 0:
     st.markdown("---")
     st.subheader("📊 근로소득금액 분포 그래프")
     
-    # 정규분포(KDE) 그래프 그리기 설정
-    fig, ax = plt.subplots(figsize=(10, 6)) # Matplotlib figure와 axes 객체 생성
-    
+    # --- Plotly 그래프 그리기 설정 ---
     # KDE (커널 밀도 추정) 플롯으로 소득 분포의 부드러운 곡선을 그립니다.
-    sns.kdeplot(df['근로소득금액_1인당_만원'], fill=True, ax=ax, color='skyblue', linewidth=2, label='근로소득금액 분포')
+    # Plotly Express의 density_kde를 사용하여 KDE 플롯을 생성합니다.
+    fig = px.density_kde(df, x='근로소득금액_1인당_만원', color_discrete_sequence=['skyblue'])
     
     # 사용자의 근로소득금액 위치를 빨간색 점선으로 표시합니다.
-    ax.axvline(user_income_mw, color='red', linestyle='--', linewidth=2, label=f'내 근로소득 ({user_income_mw:,.0f}만원)')
+    fig.add_vline(x=user_income_mw, line_dash="dot", line_color="red", line_width=2,
+                  annotation_text=f"내 근로소득 ({user_income_mw:,.0f}만원)",
+                  annotation_position="top right",
+                  annotation_font_color="red")
     
-    # 사용자 위치에 텍스트 라벨 추가 (x, y 좌표, 텍스트, 색상, 정렬 등)
-    # y 위치는 현재 y축 범위의 90% 지점으로 설정하여 그래프 위에 표시
-    max_y_lim = ax.get_ylim()[1]
-    # x 위치는 사용자 소득보다 약간 오른쪽으로 이동하여 선과 겹치지 않게 합니다.
-    ax.text(user_income_mw + (max_income_data * 0.01), max_y_lim * 0.9, # x, y 좌표
-            f'당신은 약 상위 {100 - user_percentile_estimate:.1f}%', # 표시할 텍스트
-            color='red', ha='left', va='center', # 텍스트 색상 및 정렬
-            bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.3')) # 배경 상자 설정
+    # 그래프 레이아웃 설정
+    fig.update_layout(
+        title={
+            'text': '근로소득금액 분포 및 당신의 위치',
+            'yanchor': 'top',
+            'xanchor': 'center',
+            'x': 0.5
+        },
+        xaxis_title='1인당 근로소득금액 (만원)',
+        yaxis_title='밀도',
+        hovermode="x unified" # 마우스 오버 시 정보 표시 방식 설정
+    )
 
-    ax.set_title('근로소득금액 분포 및 당신의 위치') # 그래프 제목
-    ax.set_xlabel('1인당 근로소득금액 (만원)') # x축 레이블
-    ax.set_ylabel('밀도') # y축 레이블
-    ax.legend() # 범례 표시
-    ax.grid(True, linestyle='--', alpha=0.7) # 격자선 표시
-    plt.tight_layout() # 그래프 요소들이 겹치지 않도록 자동 조정
+    # 사용자 위치에 백분위 텍스트 라벨 추가 (annotations 사용)
+    # KDE 플롯의 y축 범위는 데이터에 따라 달라지므로, 동적으로 y 위치를 조정
+    # Plotly는 Matplotlib처럼 ax.get_ylim()을 직접 제공하지 않으므로, 데이터의 밀도 최대치를 추정하여 Y위치 조정
+    # 간단하게 그래프의 Y축 최대치의 일정 비율을 사용하거나, 더 정교하게는 KDE 데이터 자체를 활용할 수 있습니다.
+    # 여기서는 대략적으로 그래프 높이의 80% 지점에 위치하도록 설정합니다.
     
-    st.pyplot(fig) # Streamlit에 Matplotlib 그래프 표시
-    plt.close(fig) # 그래프를 닫아 메모리 누수 방지
+    # 임시적인 KDE 데이터 계산 (Plotly는 내부적으로 계산하지만, 주석 위치를 위해 수동 계산 필요)
+    # 실제로는 Plotly의 내부 KDE 계산 결과에 접근하는 것이 가장 정확하지만, 간단한 추정을 위해 다음과 같이 진행
+    hist_data, edges = np.histogram(df['근로소득금액_1인당_만원'], bins=50, density=True)
+    max_density = hist_data.max() if len(hist_data) > 0 else 0.01 # Max density for y-axis
+
+    fig.add_annotation(
+        x=user_income_mw,
+        y=max_density * 0.9, # Y축 최대 밀도의 90% 지점에 위치
+        text=f'당신은 약 상위 {100 - user_percentile_estimate:.1f}%',
+        showarrow=False,
+        font=dict(color="red"),
+        bgcolor="white",
+        opacity=0.7,
+        borderpad=4,
+        borderwidth=0,
+        xanchor='left' # 텍스트가 시작되는 위치를 사용자 소득 선의 오른쪽으로 설정
+    )
+    
+    st.plotly_chart(fig, use_container_width=True) # Streamlit에 Plotly 그래프 표시
+    # --- Plotly 그래프 설정 끝 ---
 
 # 사용자 입력이 0이거나 아직 입력하지 않은 경우 안내 메시지
 else:
@@ -252,3 +275,4 @@ with st.expander("📊 통계 데이터 상세 보기 (클릭하여 펼치기/�
 
 st.markdown("---")
 st.caption("© 2025 근로소득 순위 분석기. 데이터 출처: 국세청.")
+�
