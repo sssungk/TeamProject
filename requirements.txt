@@ -1,1 +1,4 @@
-Plotly
+pandas
+plotly
+scipy
+numpy
