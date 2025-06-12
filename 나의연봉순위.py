@@ -8,7 +8,6 @@ import plotly.graph_objects as go # Plotly Graph Objects for more control (e.g.,
 # Streamlit 페이지 설정: 브라우저 탭 제목과 아이콘을 설정합니다.
 st.set_page_config(
     page_title="나의 근로소득 순위 분석",
-    page_icon="�",
     layout="centered" # 페이지 레이아웃을 중앙 정렬로 설정 (기본값은 'centered' 또는 'wide' 선택 가능)
 )
 
