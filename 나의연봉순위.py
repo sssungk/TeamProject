@@ -18,12 +18,8 @@ def load_data():
     df["인원"] = df["인원"].astype(float)
     df["근로소득금액"] = df["근로소득금액"].astype(float)
 
-    df['근로소득금액_1인당_억원'] = df.apply(
-        lambda row: row['근로소득금액'] / row['인원'] if row['인원'] > 0 else 0,
-        axis=1
-    )
-
-    df['근로소득금액_1인당_만원'] = df['근로소득금액_1인당_억원'] * 1e4
+    # 1인당 근로소득금액 (만원 단위)
+    df['근로소득금액_1인당_만원'] = df['근로소득금액'] / df['인원']
 
     def get_percentile_rank(s):
         match = re.search(r'(\d+\.?\d*)', s)
@@ -58,7 +54,7 @@ with st.sidebar:
     user_income = st.number_input(
         "근로소득금액 (만원)",
         min_value=0,
-        value=None,  # 초기값 None → 빈칸으로 표시됨
+        value=None,  # 빈칸으로 시작
         step=100,
         help="세금 및 공제 전의 총 급여가 아닌, 근로소득공제 등을 마친 후의 근로소득금액을 입력하세요."
     )
@@ -94,7 +90,6 @@ if user_income is not None and user_income > 0:
         if not lower_bound_indices.empty:
             lower_bound_row = df.loc[lower_bound_indices[-1]]
 
-            # 문구 수정: 별표 없이 bold 처리만 (Streamlit markdown에서 **로 bold)
             st.success(
                 f"🎉 국세청 통계 기준, 당신의 근로소득금액은 **{lower_bound_row['구분']}** 의 1인당 근로소득금액과 **{upper_bound_row['구분']}** 의 1인당 근로소득금액 사이에 해당합니다!"
             )
@@ -126,14 +121,12 @@ if user_income is not None and user_income > 0:
     st.markdown("---")
     st.subheader("📊 근로소득금액 분포 그래프")
 
-    # KDE 그래프용 데이터, 1인당 근로소득금액 > 0
     data_for_kde = df['근로소득금액_1인당_만원'][df['근로소득금액_1인당_만원'] > 0].values
     population_for_kde = df['인원'][df['근로소득금액_1인당_만원'] > 0].values
 
     if len(data_for_kde) > 1:
-        kde = stats.gaussian_kde(data_for_kde, weights=population_for_kde)  # 가중치: 인원수
+        kde = stats.gaussian_kde(data_for_kde, weights=population_for_kde)
 
-        # 가로축: 억원 단위 (만원/1만 = 억원)
         min_income_억 = min_income_data / 1e4
         max_income_억 = max_income_data / 1e4 * 1.05
 
@@ -141,13 +134,37 @@ if user_income is not None and user_income > 0:
         x_kde_억 = x_kde_만원 / 1e4
 
         y_kde_density = kde(x_kde_만원)
-
-        # 세로축 밀도 → 인구수(만명 단위)
-        # 인구수 = 밀도 * 총 인원 (근사)
         total_population = df['인원'].sum()
         y_kde_population = y_kde_density * total_population / 1e4  # 만명 단위
 
         fig = go.Figure()
-
         fig.add_trace(go.Scatter(
-            x=x_kde_억
+            x=x_kde_억,
+            y=y_kde_population,
+            mode='lines',
+            name='근로소득 분포 (인구수 만명 단위)'
+        ))
+
+        # 사용자 근로소득 위치 표시 (억원 단위)
+        user_income_억 = user_income_mw / 1e4
+        fig.add_trace(go.Scatter(
+            x=[user_income_억, user_income_억],
+            y=[0, max(y_kde_population)*1.1],
+            mode="lines",
+            line=dict(color="red", dash="dash"),
+            name="당신의 근로소득"
+        ))
+
+        fig.update_layout(
+            xaxis_title="1인당 근로소득금액 (억원 단위)",
+            yaxis_title="인구수 (만명 단위)",
+            margin=dict(l=40, r=40, t=40, b=40),
+            height=400,
+            hovermode="x unified"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("분포 그래프를 그리기에 데이터가 충분하지 않습니다.")
+
+else:
+    st.info("좌측 입력창에서 근로소득금액을 입력해주세요.")
