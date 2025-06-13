@@ -146,7 +146,7 @@ if user_income is not None and user_income > 0: # Check for None and positive va
             # Clip percentile estimate to be within 0-100 range
             user_percentile_estimate = max(0.0, min(100.0, user_percentile_estimate))
 
-            # Bold 처리 위해 st.markdown 사용
+            # Bold 처리 위해 st.markdown 사용 (st.write보다 마크다운 해석이 정확)
             st.markdown(f"당신은 통계적으로 약 **상위 {100 - user_percentile_estimate:.1f}%** (또는 **하위 {user_percentile_estimate:.1f}%**)에 해당합니다.")
 
         else:
@@ -165,9 +165,6 @@ if user_income is not None and user_income > 0: # Check for None and positive va
     st.subheader("📊 근로소득금액 분포 그래프")
     
     # --- Plotly Graph for '인원' Distribution ---
-    # Convert '근로소득금액_1인당_만원' to '천만원' for x-axis
-    df['근로소득금액_1인당_천만원'] = df['근로소득금액_1인당_만원'] / 100
-    
     # Convert '인원' to '만 명' for y-axis
     df['인원_만명'] = df['인원'] / 10000
 
@@ -175,17 +172,17 @@ if user_income is not None and user_income > 0: # Check for None and positive va
     fig = go.Figure()
 
     fig.add_trace(go.Bar(
-        x=df['근로소득금액_1인당_천만원'],
+        x=df['근로소득금액_1인당_만원'], # X축은 그대로 '만원' 단위를 사용
         y=df['인원_만명'],
         name='인원 분포',
         marker_color='lightseagreen',
-        hovertemplate='<b>1인당 소득:</b> %{x:,.1f} 천만원<br><b>인원:</b> %{y:,.0f} 만명<extra></extra>'
+        hovertemplate='<b>1인당 소득:</b> %{x:,.0f} 만원 (%{x/100:,.1f}천만원)<br><b>인원:</b> %{y:,.0f} 만명<extra></extra>' # 툴팁에 '천만원' 정보 추가
     ))
     
     # Add a vertical line for user's income
-    user_income_ctw = user_income_mw / 100 # Convert user income to '천만원'
-    fig.add_vline(x=user_income_ctw, line_dash="dot", line_color="red", line_width=2,
-                  annotation_text=f"내 근로소득 ({user_income_ctw:,.1f}천만원)",
+    # 사용자 소득을 만원 단위로 유지, 천만원 표기는 레이블에서 수행
+    fig.add_vline(x=user_income_mw, line_dash="dot", line_color="red", line_width=2,
+                  annotation_text=f"내 근로소득 ({user_income_mw:,.0f}만원, {user_income_mw/100:,.1f}천만원)", # 천만원 표기 추가
                   annotation_position="top right",
                   annotation_font_color="red")
     
@@ -194,7 +191,7 @@ if user_income is not None and user_income > 0: # Check for None and positive va
     max_y_for_annotation = df['인원_만명'].max() * 1.1 # Position slightly above the highest bar
 
     fig.add_annotation(
-        x=user_income_ctw,
+        x=user_income_mw, # X축은 그대로 '만원' 단위를 사용
         y=max_y_for_annotation,
         text=f'당신은 약 상위 {100 - user_percentile_estimate:.1f}%',
         showarrow=True,
@@ -202,7 +199,7 @@ if user_income is not None and user_income > 0: # Check for None and positive va
         arrowsize=1,
         arrowwidth=1,
         arrowcolor="red",
-        ax=user_income_ctw,
+        ax=user_income_mw,
         ay=max_y_for_annotation * 0.95, # Arrow points slightly below the text
         font=dict(color="red"),
         bgcolor="white",
@@ -220,12 +217,18 @@ if user_income is not None and user_income > 0: # Check for None and positive va
             'xanchor': 'center',
             'x': 0.5
         },
-        xaxis_title='1인당 근로소득금액 (천만원)',
+        xaxis_title='1인당 근로소득금액 (만원)', # X축 제목은 '만원'으로 유지
         yaxis_title='인원 (만 명)',
         hovermode="x unified",
-        height=500
+        height=500,
+        xaxis_tickformat=",.0f" # X축 틱 포맷을 만원 단위로 유지
     )
-    
+    # X축 틱 텍스트를 '천만원'으로 변환하여 표시 (가독성 향상)
+    # Plotly에서는 tickformat을 직접 바꾸기보다, ticktext와 tickvals를 사용해야 합니다.
+    # 하지만 Bar Chart의 x축은 범주형으로 인식되기 쉬우므로,
+    # 숫자를 그대로 사용하되, hovertemplate에서 '천만원'을 보여주는 방식으로 대체합니다.
+    # 아니면 customdata를 활용해야 하는데, 여기서는 간단하게 hovertemplate으로 처리합니다.
+
     st.plotly_chart(fig, use_container_width=True) # Display Plotly graph in Streamlit
 
 # If user input is 0 or not yet entered, display introductory message
