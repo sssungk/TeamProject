@@ -157,7 +157,7 @@ if user_income is not None and user_income > 0: # Check for None and positive va
             st.metric(label=f"⬆️ **{upper_bound_row['구분']}** (상한)", value=f"{upper_bound_row['근로소득금액_1인당_만원']:,.0f} 만원")
             user_percentile_estimate = np.interp(user_income_mw, df['근로소득금액_1인당_만원'].values, df['percentile_rank'].values)
             user_percentile_estimate = max(0.0, min(100.0, user_percentile_estimate))
-            st.write(f"당신은 통계적으로 약 **상위 {100 - user_percentile_estimate:.1f}%** (또는 **하위 {user_percentile_estimate:.1f}%**)에 해당합니다.")
+            st.markdown(f"당신은 통계적으로 약 **상위 {100 - user_percentile_estimate:.1f}%** (또는 **하위 {user_percentile_estimate:.1f}%**)에 해당합니다.")
     
     st.markdown("---")
     st.subheader("📊 근로소득금액 분포 그래프")
