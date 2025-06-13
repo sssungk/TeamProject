@@ -77,13 +77,18 @@ st.markdown("---") # Visual separator
 with st.sidebar:
     st.header("입력하기 ✍️")
     st.markdown("당신의 연간 **근로소득금액**을 입력해 주세요.")
-    user_income = st.number_input(
-        "근로소득금액 (만원)", # Input field label
-        min_value=0, # Minimum value 0
-        value=0, # Initial value 0
-        step=100, # Step by 100 (ten thousand KRW)
-        help="세금 및 공제 전의 총 급여가 아닌, 근로소득공제 등을 마친 후의 근로소득금액을 입력하세요."
-    )
+user_income_str = st.text_input(
+    "근로소득금액 (만원)",
+    value="",
+    placeholder="예: 5000",
+    help="세금 및 공제 전의 총 급여가 아닌, 근로소득공제 등을 마친 후의 근로소득금액을 입력하세요."
+)
+
+# 입력값이 숫자인지 확인
+try:
+    user_income = float(user_income_str.replace(",", ""))
+except ValueError:
+    user_income = 0  # 유효하지 않은 입력은 0으로 처리
     st.markdown("---")
     st.caption("본 앱은 국세청 공개 통계 자료를 바탕으로 만들어졌습니다.")
 
