@@ -87,10 +87,7 @@ with st.sidebar:
     st.markdown("---")
     st.caption("본 앱은 국세청 공개 통계 자료를 바탕으로 만들어졌습니다.")
 
-# Initialize user_percentile_estimate for later use in graph
-user_percentile_estimate = None
-
-# Main content area logic
+# Main content area
 if user_income is not None and user_income > 0: # Check for None and positive value
     user_income_mw = user_income # User input is already in 'ten thousand KRW' units.
 
@@ -244,121 +241,62 @@ if user_income is not None and user_income > 0: # Check for None and positive va
         st.warning("데이터 포인트가 부족하여 근로소득 분포 그래프를 그릴 수 없습니다. (2개 이상의 유효한 소득 데이터 필요)")
     # --- Plotly Graph Objects for KDE Plot End ---
 
-    # Detailed statistical data view: wrapped in st.expander for cleanliness
-    # MODIFICATION 1: Make expander open by default
-    with st.expander("📊 통계 데이터 상세 보기", expanded=True):
-        st.markdown("국세청에서 제공하는 1인당 근로소득금액의 백분위별 주요 통계 자료입니다.")
-
-        # Target percentile ranks (0-100 scale, from lowest to highest income)
-        target_ranks = [0.0, 0.1, 0.5, 1.0] + list(range(5, 100, 5)) + [99.0, 99.5, 99.9, 100.0]
-        target_ranks = sorted(list(set(target_ranks))) # Remove duplicates and sort
-
-        summary_rows = []
-        seen_percentile_ranks = set() # Prevent duplicate additions for rows with same percentile rank
-
-        for target_rank in target_ranks:
-            # Find the row in df closest to the target_rank
-            closest_row_idx = (df['percentile_rank'] - target_rank).abs().idxmin()
-            row = df.loc[closest_row_idx].copy() # Use copy() to prevent SettingWithCopyWarning
-
-            # Update '구분' (category) column based on 'percentile_rank' for better clarity.
-            if row['percentile_rank'] >= 99.9:
-                row['구분'] = f"상위 {100 - row['percentile_rank']:.1f}%"
-            elif row['percentile_rank'] >= 99:
-                 row['구분'] = f"상위 {100 - row['percentile_rank']:.0f}%"
-            elif row['percentile_rank'] <= 0.1:
-                row['구분'] = f"하위 {row['percentile_rank']:.1f}%"
-            elif row['percentile_rank'] <= 1:
-                row['구분'] = f"하위 {row['percentile_rank']:.0f}%"
-            else:
-                row['구분'] = f"하위 {row['percentile_rank']:.0f}% (약 {row['percentile_rank']:.0f}분위)"
-
-
-            # Add row only if percentile rank not seen or if it's a specific boundary value
-            if row['percentile_rank'] not in seen_percentile_ranks or \
-               target_rank in [0.0, 0.1, 99.9, 100.0]: # Always include specific boundary values
-                summary_rows.append(row)
-                seen_percentile_ranks.add(row['percentile_rank'])
-                
-        # Create summary DataFrame and sort by percentile rank
-        summary_df = pd.DataFrame(summary_rows).sort_values(by='percentile_rank', ascending=True)
-        summary_df = summary_df.drop_duplicates(subset=['percentile_rank']) # Final duplicate removal
-
-        # MODIFICATION 2: Highlight the row corresponding to user's percentile
-        if user_percentile_estimate is not None:
-            # Find the row closest to the user's estimated percentile in the summary_df
-            closest_summary_row_idx = (summary_df['percentile_rank'] - user_percentile_estimate).abs().idxmin()
-            
-            def highlight_row(s, index_to_highlight):
-                is_highlighted = pd.Series(data=False, index=s.index)
-                # Apply highlight to the row closest to the user's percentile
-                is_highlighted.iloc[index_to_highlight] = True
-                return ['background-color: #FFFFAA' if v else '' for v in is_highlighted] # Using a soft yellow for highlight
-
-            # Display summary DataFrame with highlighting
-            st.dataframe(
-                summary_df[['구분', '인원', '근로소득금액_1인당_만원', 'percentile_rank']].round(2).style.apply(
-                    highlight_row, axis=0, index_to_highlight=closest_summary_row_idx
-                ),
-                height=300
-            )
-        else:
-            # Display summary DataFrame without highlighting if user_percentile_estimate is None
-            st.dataframe(summary_df[['구분', '인원', '근로소득금액_1인당_만원', 'percentile_rank']].round(2),
-                         height=300) # Set height to make it scrollable
-
-        st.markdown("---")
-        st.markdown("전체 통계 데이터 (정렬 기준: 1인당 근로소득금액):")
-        # Display full DataFrame (relevant columns, rounded to 2 decimal places)
-        st.dataframe(df[['구분', '인원', '근로소득금액', '근로소득금액_1인당_만원', 'percentile_rank']].round(2))
-
 # If user input is 0 or not yet entered, display introductory message
-else: # This 'else' correctly pairs with the initial 'if user_income is not None and user_income > 0:'
+else:
     st.info("👈 왼쪽 사이드바에 연간 근로소득금액을 입력하여 당신의 순위를 확인해 보세요! (예: 5000)")
-    # Keep the expander open by default even without user input
-    with st.expander("📊 통계 데이터 상세 보기", expanded=True):
-        st.markdown("국세청에서 제공하는 1인당 근로소득금액의 백분위별 주요 통계 자료입니다.")
-        # Target percentile ranks (0-100 scale, from lowest to highest income)
-        target_ranks = [0.0, 0.1, 0.5, 1.0] + list(range(5, 100, 5)) + [99.0, 99.5, 99.9, 100.0]
-        target_ranks = sorted(list(set(target_ranks))) # Remove duplicates and sort
 
-        summary_rows = []
-        seen_percentile_ranks = set() # Prevent duplicate additions for rows with same percentile rank
+st.markdown("---")
 
-        for target_rank in target_ranks:
-            # Find the row in df closest to the target_rank
-            closest_row_idx = (df['percentile_rank'] - target_rank).abs().idxmin()
-            row = df.loc[closest_row_idx].copy() # Use copy() to prevent SettingWithCopyWarning
+# Detailed statistical data view: wrapped in st.expander for cleanliness
+with st.expander("📊 통계 데이터 상세 보기 (클릭하여 펼치기/접기)"):
+    st.markdown("국세청에서 제공하는 1인당 근로소득금액의 백분위별 주요 통계 자료입니다.")
 
-            # Update '구분' (category) column based on 'percentile_rank' for better clarity.
-            if row['percentile_rank'] >= 99.9:
-                row['구분'] = f"상위 {100 - row['percentile_rank']:.1f}%"
-            elif row['percentile_rank'] >= 99:
-                 row['구분'] = f"상위 {100 - row['percentile_rank']:.0f}%"
-            elif row['percentile_rank'] <= 0.1:
-                row['구분'] = f"하위 {row['percentile_rank']:.1f}%"
-            elif row['percentile_rank'] <= 1:
-                row['구분'] = f"하위 {row['percentile_rank']:.0f}%"
-            else:
-                row['구분'] = f"하위 {row['percentile_rank']:.0f}% (약 {row['percentile_rank']:.0f}분위)"
+    # Generate summary DataFrame for key percentiles (e.g., 5% intervals)
+    # Includes 0.1%, 0.5%, 1%, 5%, 10% ... 95%, 99%, 99.5%, 99.9%
+    
+    # Target percentile ranks (0-100 scale, from lowest to highest income)
+    target_ranks = [0.0, 0.1, 0.5, 1.0] + list(range(5, 100, 5)) + [99.0, 99.5, 99.9, 100.0]
+    target_ranks = sorted(list(set(target_ranks))) # Remove duplicates and sort
+
+    summary_rows = []
+    seen_percentile_ranks = set() # Prevent duplicate additions for rows with same percentile rank
+
+    for target_rank in target_ranks:
+        # Find the row in df closest to the target_rank
+        closest_row_idx = (df['percentile_rank'] - target_rank).abs().idxmin()
+        row = df.loc[closest_row_idx].copy() # Use copy() to prevent SettingWithCopyWarning
+
+        # Update '구분' (category) column based on 'percentile_rank' for better clarity.
+        if row['percentile_rank'] >= 99.9:
+            row['구분'] = f"상위 {100 - row['percentile_rank']:.1f}%"
+        elif row['percentile_rank'] >= 99:
+             row['구분'] = f"상위 {100 - row['percentile_rank']:.0f}%"
+        elif row['percentile_rank'] <= 0.1:
+            row['구분'] = f"하위 {row['percentile_rank']:.1f}%"
+        elif row['percentile_rank'] <= 1:
+            row['구분'] = f"하위 {row['percentile_rank']:.0f}%"
+        else:
+            row['구분'] = f"하위 {row['percentile_rank']:.0f}% (약 {row['percentile_rank']:.0f}분위)"
 
 
-            # Add row only if percentile rank not seen or if it's a specific boundary value
-            if row['percentile_rank'] not in seen_percentile_ranks or \
-               target_rank in [0.0, 0.1, 99.9, 100.0]: # Always include specific boundary values
-                summary_rows.append(row)
-                seen_percentile_ranks.add(row['percentile_rank'])
-                
-        # Create summary DataFrame and sort by percentile rank
-        summary_df = pd.DataFrame(summary_rows).sort_values(by='percentile_rank', ascending=True)
-        summary_df = summary_df.drop_duplicates(subset=['percentile_rank']) # Final duplicate removal
+        # Add row only if percentile rank not seen or if it's a specific boundary value
+        if row['percentile_rank'] not in seen_percentile_ranks or \
+           target_rank in [0.0, 0.1, 99.9, 100.0]: # Always include specific boundary values
+            summary_rows.append(row)
+            seen_percentile_ranks.add(row['percentile_rank'])
+            
+    # Create summary DataFrame and sort by percentile rank
+    summary_df = pd.DataFrame(summary_rows).sort_values(by='percentile_rank', ascending=True)
+    summary_df = summary_df.drop_duplicates(subset=['percentile_rank']) # Final duplicate removal
 
-        st.dataframe(summary_df[['구분', '인원', '근로소득금액_1인당_만원', 'percentile_rank']].round(2),
-                     height=300) # Set height to make it scrollable
+    # Display summary DataFrame (only relevant columns, rounded to 2 decimal places)
+    st.dataframe(summary_df[['구분', '인원', '근로소득금액_1인당_만원', 'percentile_rank']].round(2),
+                 height=300) # Set height to make it scrollable
 
-        st.markdown("---")
-        st.markdown("전체 통계 데이터 (정렬 기준: 1인당 근로소득금액):")
-        st.dataframe(df[['구분', '인원', '근로소득금액', '근로소득금액_1인당_만원', 'percentile_rank']].round(2))
+    st.markdown("---")
+    st.markdown("전체 통계 데이터 (정렬 기준: 1인당 근로소득금액):")
+    # Display full DataFrame (relevant columns, rounded to 2 decimal places)
+    st.dataframe(df[['구분', '인원', '근로소득금액', '근로소득금액_1인당_만원', 'percentile_rank']].round(2))
 
 st.markdown("---")
 st.caption("© 2025 근로소득 순위 분석기. 데이터 출처: 국세청.")
