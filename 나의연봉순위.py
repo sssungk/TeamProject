@@ -3,7 +3,7 @@ import pandas as pd
 import re
 import numpy as np
 import plotly.graph_objects as go
-from scipy import stats
+from scipy import stats # For Kernel Density Estimation (KDE)
 
 # Streamlit page configuration: sets browser tab title and icon.
 st.set_page_config(
@@ -164,72 +164,82 @@ if user_income is not None and user_income > 0: # Check for None and positive va
     st.markdown("---")
     st.subheader("📊 근로소득금액 분포 그래프")
     
-    # --- Plotly Graph for '인원' Distribution ---
-    # Convert '인원' to '만 명' for y-axis
-    df['인원_만명'] = df['인원'] / 10000
+    # --- Plotly Graph Objects for KDE Plot ---
+    # Filter out zero incomes for KDE calculation to avoid skewing the distribution
+    data_for_kde = df['근로소득금액_1인당_만원'][df['근로소득금액_1인당_만원'] > 0].values
 
-    # Create Plotly figure for a bar chart representing population distribution
-    fig = go.Figure()
+    if len(data_for_kde) > 1: # KDE requires at least 2 data points
+        # Calculate KDE
+        kde = stats.gaussian_kde(data_for_kde)
+        
+        # Create x-values for the KDE curve (range from min to max income)
+        x_kde = np.linspace(min_income_data, max_income_data * 1.05, 500) # Extend slightly beyond max income
+        y_kde = kde(x_kde)
 
-    fig.add_trace(go.Bar(
-        x=df['근로소득금액_1인당_만원'], # X축은 그대로 '만원' 단위를 사용
-        y=df['인원_만명'],
-        name='인원 분포',
-        marker_color='lightseagreen',
-        hovertemplate='<b>1인당 소득:</b> %{x:,.0f} 만원 (%{x/100:,.1f}천만원)<br><b>인원:</b> %{y:,.0f} 만명<extra></extra>' # 툴팁에 '천만원' 정보 추가
-    ))
-    
-    # Add a vertical line for user's income
-    # 사용자 소득을 만원 단위로 유지, 천만원 표기는 레이블에서 수행
-    fig.add_vline(x=user_income_mw, line_dash="dot", line_color="red", line_width=2,
-                  annotation_text=f"내 근로소득 ({user_income_mw:,.0f}만원, {user_income_mw/100:,.1f}천만원)", # 천만원 표기 추가
-                  annotation_position="top right",
-                  annotation_font_color="red")
-    
-    # Add annotation for user's percentile rank
-    # Find the y-position for the annotation. We'll use a fixed percentage of max_y for visibility.
-    max_y_for_annotation = df['인원_만명'].max() * 1.1 # Position slightly above the highest bar
+        # Create Plotly figure
+        fig = go.Figure()
 
-    fig.add_annotation(
-        x=user_income_mw, # X축은 그대로 '만원' 단위를 사용
-        y=max_y_for_annotation,
-        text=f'당신은 약 상위 {100 - user_percentile_estimate:.1f}%',
-        showarrow=True,
-        arrowhead=2,
-        arrowsize=1,
-        arrowwidth=1,
-        arrowcolor="red",
-        ax=user_income_mw,
-        ay=max_y_for_annotation * 0.95, # Arrow points slightly below the text
-        font=dict(color="red"),
-        bgcolor="white",
-        opacity=0.7,
-        borderpad=4,
-        borderwidth=0,
-        xanchor='left'
-    )
+        # Add KDE trace (filled area)
+        fig.add_trace(go.Scatter(
+            x=x_kde,
+            y=y_kde,
+            mode='lines',
+            fill='tozeroy', # Fills the area under the curve
+            name='근로소득금액 분포 (KDE)',
+            line=dict(color='skyblue', width=2),
+            hovertemplate='<b>근로소득금액:</b> %{x:,.0f} 만원 (%{customdata:,.1f}천만원)<br><b>밀도:</b> %{y:.4f}<extra></extra>',
+            customdata=x_kde / 100 # 천만원 단위 정보를 customdata에 추가
+        ))
+        
+        # Add a vertical line for user's income
+        fig.add_vline(x=user_income_mw, line_dash="dot", line_color="red", line_width=2,
+                      annotation_text=f"내 근로소득 ({user_income_mw:,.0f}만원, {user_income_mw/100:,.1f}천만원)", # 천만원 표기 추가
+                      annotation_position="top right",
+                      annotation_font_color="red")
+        
+        # Add annotation for user's percentile rank
+        # Position annotation at the peak of the KDE curve's height for better visibility
+        # Find the density value at user_income_mw for positioning
+        user_density_at_x = kde(np.array([user_income_mw]))[0]
 
-    # Update layout for title and axis labels
-    fig.update_layout(
-        title={
-            'text': '근로소득금액 분포 및 당신의 위치',
-            'yanchor': 'top',
-            'xanchor': 'center',
-            'x': 0.5
-        },
-        xaxis_title='1인당 근로소득금액 (만원)', # X축 제목은 '만원'으로 유지
-        yaxis_title='인원 (만 명)',
-        hovermode="x unified",
-        height=500,
-        xaxis_tickformat=",.0f" # X축 틱 포맷을 만원 단위로 유지
-    )
-    # X축 틱 텍스트를 '천만원'으로 변환하여 표시 (가독성 향상)
-    # Plotly에서는 tickformat을 직접 바꾸기보다, ticktext와 tickvals를 사용해야 합니다.
-    # 하지만 Bar Chart의 x축은 범주형으로 인식되기 쉬우므로,
-    # 숫자를 그대로 사용하되, hovertemplate에서 '천만원'을 보여주는 방식으로 대체합니다.
-    # 아니면 customdata를 활용해야 하는데, 여기서는 간단하게 hovertemplate으로 처리합니다.
+        fig.add_annotation(
+            x=user_income_mw,
+            y=user_density_at_x * 1.1, # Position slightly above the KDE curve at user's income
+            text=f'당신은 약 상위 {100 - user_percentile_estimate:.1f}%',
+            showarrow=True, # Show arrow pointing to the line
+            arrowhead=2,
+            arrowsize=1,
+            arrowwidth=1,
+            arrowcolor="red",
+            ax=user_income_mw, # arrow's head x
+            ay=user_density_at_x * 1.05, # arrow's head y
+            font=dict(color="red"),
+            bgcolor="white",
+            opacity=0.7,
+            borderpad=4,
+            borderwidth=0,
+            xanchor='left' # Text starts to the right of the line
+        )
 
-    st.plotly_chart(fig, use_container_width=True) # Display Plotly graph in Streamlit
+        # Update layout for title and axis labels
+        fig.update_layout(
+            title={
+                'text': '근로소득금액 분포 및 당신의 위치',
+                'yanchor': 'top',
+                'xanchor': 'center',
+                'x': 0.5
+            },
+            xaxis_title='1인당 근로소득금액 (만원)', # X축 제목은 '만원'으로 유지
+            yaxis_title='밀도',
+            hovermode="x unified", # Display information on hover
+            height=500, # Set a fixed height for the graph
+            xaxis_tickformat=",.0f" # X축 틱 포맷을 만원 단위로 유지
+        )
+        
+        st.plotly_chart(fig, use_container_width=True) # Display Plotly graph in Streamlit
+    else:
+        st.warning("데이터 포인트가 부족하여 근로소득 분포 그래프를 그릴 수 없습니다. (2개 이상의 유효한 소득 데이터 필요)")
+    # --- Plotly Graph Objects for KDE Plot End ---
 
 # If user input is 0 or not yet entered, display introductory message
 else:
