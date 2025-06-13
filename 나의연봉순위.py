@@ -71,7 +71,7 @@ df = load_data()
 
 # Main title and description
 st.title("📊 나의 근로소득 순위는?")
-st.markdown("국세청 [근로소득 백분위(천분위)] 통계 기준이며, :bold[1인당 근로소득금액]을 기준으로 순위를 계산합니다.")
+st.markdown("국세청 [근로소득 백분위(천분위)] 통계 기준이며, **1인당 근로소득금액**을 기준으로 순위를 계산합니다.")
 st.markdown("---")  # Visual separator
 
 # User input: moved to sidebar
