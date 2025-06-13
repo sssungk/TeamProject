@@ -151,7 +151,7 @@ if user_income > 0:
             # Clip percentile estimate to be within 0-100 range
             user_percentile_estimate = max(0.0, min(100.0, user_percentile_estimate))
 
-          st.write(f"당신은 통계적으로 약 :bold[상위 {100 - user_percentile_estimate:.1f}%] (또는 :bold[하위 {user_percentile_estimate:.1f}%])에 해당합니다.")
+           st.write(f"당신은 통계적으로 약 :bold[상위 {100 - user_percentile_estimate:.1f}%] (또는 :bold[하위 {user_percentile_estimate:.1f}%])에 해당합니다.")
 
         else:
             # Case where user's income falls within the first percentile group or slightly above it
