@@ -110,13 +110,13 @@ if user_income > 0:
     if user_income_mw < min_income_data:
         st.info(
             f"📉 당신의 근로소득금액({user_income_mw:,.0f} 만원)은 통계 데이터 내 가장 낮은 구간인 "
-            f"**{df['구분'].iloc[0]}**의 1인당 근로소득금액({min_income_data:,.0f} 만원)보다도 낮습니다."
+            f"**{df['구분'].iloc[0]}** 의 1인당 근로소득금액({min_income_data:,.0f} 만원)보다도 낮습니다."
         )
         user_percentile_estimate = 0.0  # Estimated percentile for plotting
     elif user_income_mw > max_income_data:
         st.info(
             f"📈 당신의 근로소득금액({user_income_mw:,.0f} 만원)은 통계 데이터 내 가장 높은 구간인 "
-            f"**{df['구분'].iloc[-1]}**의 1인당 근로소득금액({max_income_data:,.0f} 만원)보다도 높습니다. 당신은 통계상 최상위권에 속합니다!"
+            f"**{df['구분'].iloc[-1]}** 의 1인당 근로소득금액({max_income_data:,.0f} 만원)보다도 높습니다. 당신은 통계상 최상위권에 속합니다!"
         )
         user_percentile_estimate = 100.0  # Estimated percentile for plotting
     else:
